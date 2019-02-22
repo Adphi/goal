@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/thomasdao/goal"
+	"github.com/Adphi/goal"
 )
 
 func (user *testuser) Query(w http.ResponseWriter, req *http.Request) (int, interface{}, error) {

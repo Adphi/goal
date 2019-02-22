@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/thomasdao/goal.svg?branch=master)](https://travis-ci.org/thomasdao/goal)
+[![Build Status](https://travis-ci.org/Adphi/goal.svg?branch=master)](https://travis-ci.org/Adphi/goal)
 
 I like [Parse](https://parse.com) for its ease of use and I think it's really nice example about well-designed API. However it is probably best for mobile backend where you don't need too much control at server side. Its query can be slow since we don't have control over index, and many services are not available like cache or websocket.
 

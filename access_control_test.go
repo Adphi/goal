@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/thomasdao/goal"
+	"github.com/Adphi/goal"
 )
 
 // Satisfy Roler interface
@@ -55,7 +55,7 @@ func TestCanRead(t *testing.T) {
 
 	res := httptest.NewRecorder()
 
-	var json = []byte(`{"username":"thomasdao", "password": "something-secret"}`)
+	var json = []byte(`{"username":"Adphi", "password": "something-secret"}`)
 	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(json))
 
 	goal.SharedAPI().Mux().ServeHTTP(res, req)
@@ -79,6 +79,6 @@ func TestCanRead(t *testing.T) {
 	resp.Body.Close()
 
 	if resp.StatusCode != 403 || err != nil {
-		t.Error("Request should be unauthorized because thomasdao doesn't have admin role")
+		t.Error("Request should be unauthorized because Adphi doesn't have admin role")
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/thomasdao/goal"
+	"github.com/Adphi/goal"
 )
 
 // Setup methods to conform to auth interfaces
@@ -42,7 +42,7 @@ func TestAuth(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 
-	var json = []byte(`{"username":"thomasdao", "password": "secret-password"}`)
+	var json = []byte(`{"username":"Adphi", "password": "secret-password"}`)
 	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(json))
 	goal.SharedAPI().Mux().ServeHTTP(recorder, req)
 
@@ -55,7 +55,7 @@ func TestAuth(t *testing.T) {
 
 	// Make sure db has one object
 	var user testuser
-	err := db.Where("username = ?", "thomasdao").First(&user).Error
+	err := db.Where("username = ?", "Adphi").First(&user).Error
 	if err != nil {
 		t.Error("Fail to save object to database")
 		return

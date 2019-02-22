@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/thomasdao/goal"
+	"github.com/Adphi/goal"
 )
 
 // Define HTTP methods to support

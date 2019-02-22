@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http/httptest"
 
+	"github.com/Adphi/goal"
 	"github.com/garyburd/redigo/redis"
 	"github.com/gorilla/sessions"
 	"github.com/jinzhu/gorm"
-	"github.com/thomasdao/goal"
 )
 
 var server *httptest.Server
