@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -129,7 +130,7 @@ func (params *QueryParams) Find(resource interface{}, results interface{}) error
 
 	if params.Include != nil {
 		for _, name := range params.Include {
-			qryDB = qryDB.Preload(name)
+			qryDB = qryDB.Preload(strings.Title(name))
 		}
 	}
 

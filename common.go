@@ -57,8 +57,8 @@ func renderJSON(rw http.ResponseWriter, request *http.Request, handler simpleRes
 		return
 	}
 
-	rw.WriteHeader(code)
 	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(code)
 	rw.Write(content)
 }
 
