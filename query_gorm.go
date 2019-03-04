@@ -114,11 +114,12 @@ func (params *QueryParams) Find(resource interface{}, results interface{}) error
 	}
 
 	if params.Skip != 0 {
-		qryDB = qryDB.Offset(params.Limit)
+		qryDB = qryDB.Offset(params.Skip)
 	}
 
 	if params.Order != nil {
 		for name, order := range params.Order {
+			name = strings.Title(name)
 			if !scope.HasColumn(name) {
 				errorMsg := fmt.Sprintf("Column %s does not exist", name)
 				return errors.New(errorMsg)
