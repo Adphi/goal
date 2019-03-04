@@ -69,7 +69,7 @@ func Read(rType reflect.Type, request *http.Request) (int, interface{}, error) {
 	}
 
 	// Retrieve from database
-	err = db.First(resource, id).Error
+	err = db.Where("id = ?", id).First(resource).Error
 	if err != nil {
 		return 500, nil, err
 	}
