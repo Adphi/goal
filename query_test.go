@@ -81,6 +81,35 @@ func TestSuccessQueryParamsFind(t *testing.T) {
 
 }
 
+func TestSuccessQueryBuilderFind(t *testing.T) {
+	setup()
+	defer tearDown()
+
+	createUsers()
+
+	var results []testuser
+	var user testuser
+
+	q := goal.NewQuery().Where("name").Equals("Thomas")
+	q.Find(&user, &results)
+
+	if results == nil || len(results) != 1 {
+		t.Error("Error: query should return 1 result")
+	}
+
+	q = q.Or("name").Equals("Alan")
+	q.Find(&user, &results)
+
+	if results == nil || len(results) != 2 {
+		t.Error("Error: query should return 2 result")
+	}
+
+	q.And("age").Sup(29).Find(&user, &results)
+	if results == nil || len(results) != 1 {
+		t.Error("Error: query should return 1 result")
+	}
+}
+
 func TestInvalidQueryParamsFind(t *testing.T) {
 	setup()
 	defer tearDown()
@@ -101,7 +130,7 @@ func TestInvalidQueryParamsFind(t *testing.T) {
 	var user testuser
 	err := params.Find(&user, &results)
 	if err == nil {
-		t.Error("Error: Query operator should be invalid")
+		t.Error("Error: query operator should be invalid")
 	}
 
 	item = &goal.QueryItem{}
@@ -112,7 +141,7 @@ func TestInvalidQueryParamsFind(t *testing.T) {
 
 	err = params.Find(&user, &results)
 	if err == nil {
-		t.Error("Error: Query column should be invalid")
+		t.Error("Error: query column should be invalid")
 	}
 }
 

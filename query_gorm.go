@@ -11,30 +11,47 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jinzhu/gorm"
 	"net/http"
 	"net/url"
 	"reflect"
 
 	"github.com/gorilla/mux"
-	"github.com/jinzhu/gorm"
 )
 
-var ops map[string]bool
+var ops map[Op]bool
 
-func allowedOps() map[string]bool {
+type Op string
+
+type Order string
+
+const (
+	Equal Op = "="
+	Sup   Op = ">"
+	SupEq Op = ">="
+	Inf   Op = "<"
+	InfEq Op = "<="
+	NotEq Op = "<>"
+	In    Op = "in"
+	Like  Op = "like"
+
+	Asc  Order = "ASC"
+	Desc Order = "DESC"
+)
+
+func allowedOps() map[Op]bool {
 	if ops == nil {
-		ops = map[string]bool{
-			"=":    true,
-			">":    true,
-			">=":   true,
-			"<":    true,
-			"<=":   true,
-			"<>":   true,
-			"in":   true,
-			"like": true,
+		ops = map[Op]bool{
+			Equal: true,
+			Sup:   true,
+			SupEq: true,
+			Inf:   true,
+			InfEq: true,
+			NotEq: true,
+			In:    true,
+			Like:  true,
 		}
 	}
-
 	return ops
 }
 
@@ -42,32 +59,9 @@ func allowedOps() map[string]bool {
 // For example: name = Thomas
 type QueryItem struct {
 	Key string       `json:"key"`
-	Op  string       `json:"op"`
+	Op  Op           `json:"op"`
 	Val interface{}  `json:"val"`
 	Or  []*QueryItem `json:"or"`
-}
-
-func (item *QueryItem) getQuery(scope *gorm.Scope) (string, error) {
-	_, exists := allowedOps()[item.Op]
-	if !exists {
-		str := fmt.Sprintf("Invalid SQL operator: %s", item.Op)
-		return "", errors.New(str)
-	}
-
-	if !scope.HasColumn(item.Key) {
-		str := fmt.Sprintf("Column does not exist: %s", item.Key)
-		return "", errors.New(str)
-	}
-
-	var query string
-
-	if item.Op == "in" {
-		query = fmt.Sprintf("%s %s (?)", item.Key, item.Op)
-	} else {
-		query = fmt.Sprintf("%s %s ?", item.Key, item.Op)
-	}
-
-	return query, nil
 }
 
 // QueryParams defines structure of a query. Where clause
@@ -75,6 +69,7 @@ func (item *QueryItem) getQuery(scope *gorm.Scope) (string, error) {
 type QueryParams struct {
 	Where   []*QueryItem    `json:"where"`
 	Limit   int64           `json:"limit"`
+	Skip    int64           `json:"skip"`
 	Order   map[string]bool `json:"order"`
 	Include []string        `json:"include"`
 }
@@ -117,6 +112,10 @@ func (params *QueryParams) Find(resource interface{}, results interface{}) error
 		qryDB = qryDB.Limit(params.Limit)
 	}
 
+	if params.Skip != 0 {
+		qryDB = qryDB.Offset(params.Limit)
+	}
+
 	if params.Order != nil {
 		for name, order := range params.Order {
 			if !scope.HasColumn(name) {
@@ -134,7 +133,7 @@ func (params *QueryParams) Find(resource interface{}, results interface{}) error
 		}
 	}
 
-	// Query the database
+	// query the database
 	qryDB.Find(results)
 
 	return nil
@@ -191,4 +190,27 @@ func HandleQuery(rType reflect.Type, request *http.Request) (int, interface{}, e
 	}
 
 	return 200, filtered, nil
+}
+
+func (item *QueryItem) getQuery(scope *gorm.Scope) (string, error) {
+	_, exists := allowedOps()[item.Op]
+	if !exists {
+		str := fmt.Sprintf("Invalid SQL operator: %s", item.Op)
+		return "", errors.New(str)
+	}
+
+	if !scope.HasColumn(item.Key) {
+		str := fmt.Sprintf("Column does not exist: %s", item.Key)
+		return "", errors.New(str)
+	}
+
+	var query string
+
+	if item.Op == "in" {
+		query = fmt.Sprintf("%s %s (?)", item.Key, item.Op)
+	} else {
+		query = fmt.Sprintf("%s %s ?", item.Key, item.Op)
+	}
+
+	return query, nil
 }
