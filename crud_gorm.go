@@ -145,7 +145,7 @@ func Update(rType reflect.Type, request *http.Request) (int, interface{}, error)
 	}
 
 	// Retrieve from database
-	err = db.First(resource, id).Error
+	err = db.Where("id = ?", id).First(resource).Error
 	if err != nil {
 		fmt.Println(err)
 		return 500, nil, err
@@ -204,7 +204,7 @@ func Delete(rType reflect.Type, request *http.Request) (int, interface{}, error)
 	resource := newObjectWithType(rType)
 
 	// Retrieve from database
-	err := db.First(resource, id).Error
+	err := db.Where("id = ?", id).First(resource).Error
 	if err != nil {
 		return 500, nil, err
 	}
@@ -216,7 +216,7 @@ func Delete(rType reflect.Type, request *http.Request) (int, interface{}, error)
 	}
 
 	// Delete record, if failed show 500 error code
-	err = db.Delete(resource, id).Error
+	err = db.Delete(resource).Error
 	if err != nil {
 		return 500, nil, err
 	}
