@@ -12,7 +12,7 @@ type Roler interface {
 	Roles() []string
 }
 
-// PermitReader allows authenticated user to read the record
+// PermitReader allows authenticated user to Read the record
 type PermitReader interface {
 	PermitRead() []string
 }
@@ -57,8 +57,8 @@ func (p *Permission) PermitWrite() []string {
 	return nil
 }
 
-// CanPerform check if a roler can access a resource (read/write)
-// If read is false, then it will check for write permission
+// CanPerform check if a roler can access a resource (Read/write)
+// If Read is false, then it will check for write permission
 // It will return error if the check is failed
 func CanPerform(resource interface{}, request *http.Request, read bool) error {
 	unauthorized := errors.New("unauthorized access")

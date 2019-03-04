@@ -6,15 +6,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"reflect"
 	"testing"
 
 	"github.com/Adphi/goal"
 )
-
-func (user *testuser) Query(w http.ResponseWriter, req *http.Request) (int, interface{}, error) {
-	return goal.HandleQuery(reflect.TypeOf(user), req)
-}
 
 func queryPath(query []byte) string {
 	return fmt.Sprint(server.URL, "/query/testuser/", url.QueryEscape(string(query)))

@@ -74,7 +74,13 @@ func setup() {
 
 	// Add default path
 	for _, model := range models {
-		goal.RegisterModel(model)
+		goal.RegisterModel(model, goal.Access{
+			Create: true,
+			Read:   true,
+			Update: true,
+			Delete: true,
+			Query:  true,
+		})
 	}
 
 	user := &testuser{}

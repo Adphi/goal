@@ -50,7 +50,7 @@ func TestCanRead(t *testing.T) {
 
 	err := db.Create(art).Error
 	if err != nil {
-		fmt.Println("error create article ", err)
+		fmt.Println("error Create article ", err)
 	}
 
 	res := httptest.NewRecorder()

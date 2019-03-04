@@ -2,7 +2,10 @@
 
 package goal
 
-import "github.com/gorilla/mux"
+import (
+	"github.com/gorilla/mux"
+	"reflect"
+)
 
 // An API manages a group of resources by routing requests
 // to the correct method on a matching resource and marshalling
@@ -13,6 +16,7 @@ import "github.com/gorilla/mux"
 type API struct {
 	mux            *mux.Router
 	muxInitialized bool
+	resources      map[reflect.Type]Access
 }
 
 var sharedAPI *API
@@ -21,6 +25,7 @@ var sharedAPI *API
 func NewAPI() *API {
 	if sharedAPI == nil {
 		sharedAPI = &API{}
+		sharedAPI.resources = map[reflect.Type]Access{}
 	}
 	return sharedAPI
 }

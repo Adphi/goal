@@ -89,7 +89,7 @@ func Read(rType reflect.Type, request *http.Request) (int, interface{}, error) {
 	return 200, resource, nil
 }
 
-// Create provides basic implementation to create a record
+// Create provides basic implementation to Create a record
 // into the database
 func Create(rType reflect.Type, request *http.Request) (int, interface{}, error) {
 	if db == nil {

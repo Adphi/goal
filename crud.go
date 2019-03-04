@@ -3,16 +3,7 @@ package goal
 import (
 	"fmt"
 	"net/http"
-)
-
-// HTTP Methods
-const (
-	GET    = "GET"
-	POST   = "POST"
-	PUT    = "PUT"
-	DELETE = "DELETE"
-	HEAD   = "HEAD"
-	PATCH  = "PATCH"
+	"reflect"
 )
 
 // GetSupporter is the interface that provides the Get
@@ -57,27 +48,51 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 		var handler simpleResponse
 
 		switch request.Method {
-		case GET:
+		case http.MethodGet:
 			if resource, ok := resource.(GetSupporter); ok {
 				handler = resource.Get
+				break
 			}
-		case POST:
+			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Read {
+				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
+					return Read(reflect.TypeOf(resource), r)
+				}
+			}
+		case http.MethodPost:
 			if resource, ok := resource.(PostSupporter); ok {
 				handler = resource.Post
+				break
 			}
-		case PUT:
+			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Create {
+				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
+					return Create(reflect.TypeOf(resource), r)
+				}
+			}
+		case http.MethodPut:
 			if resource, ok := resource.(PutSupporter); ok {
 				handler = resource.Put
+				break
 			}
-		case DELETE:
+			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Update {
+				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
+					return Update(reflect.TypeOf(resource), r)
+				}
+			}
+		case http.MethodDelete:
 			if resource, ok := resource.(DeleteSupporter); ok {
 				handler = resource.Delete
+				break
 			}
-		case HEAD:
+			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Delete {
+				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
+					return Delete(reflect.TypeOf(resource), r)
+				}
+			}
+		case http.MethodHead:
 			if resource, ok := resource.(HeadSupporter); ok {
 				handler = resource.Head
 			}
-		case PATCH:
+		case http.MethodPatch:
 			if resource, ok := resource.(PatchSupporter); ok {
 				handler = resource.Patch
 			}
@@ -91,6 +106,24 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 // requests that match one of the given paths to the matching HTTP
 // method on the resource.
 func (api *API) AddCrudResource(resource interface{}, paths ...string) {
+	for _, path := range paths {
+		api.Mux().HandleFunc(path, api.crudHandler(resource))
+	}
+}
+
+type Access struct {
+	Create bool
+	Read   bool
+	Update bool
+	Delete bool
+	Query  bool
+}
+
+func (api *API) AddResource(resource interface{}, access Access, paths ...string) {
+	if api.resources == nil {
+		api.resources = map[reflect.Type]Access{}
+	}
+	api.resources[reflect.TypeOf(resource)] = access
 	for _, path := range paths {
 		api.Mux().HandleFunc(path, api.crudHandler(resource))
 	}

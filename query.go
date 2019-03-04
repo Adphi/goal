@@ -3,10 +3,11 @@ package goal
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 )
 
 // QuerySupporter is the interface that return filtered results
-// based on request paramters
+// based on request parameters
 type QuerySupporter interface {
 	Query(http.ResponseWriter, *http.Request) (int, interface{}, error)
 }
@@ -15,8 +16,12 @@ func (api *API) queryHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		var handler simpleResponse
 
-		if resource, ok := resource.(QuerySupporter); ok {
-			handler = resource.Query
+		if r, ok := resource.(QuerySupporter); ok {
+			handler = r.Query
+		} else if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Query {
+			handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
+				return HandleQuery(reflect.TypeOf(resource), r)
+			}
 		}
 
 		renderJSON(rw, request, handler)
@@ -26,6 +31,12 @@ func (api *API) queryHandler(resource interface{}) http.HandlerFunc {
 // AddQueryResource allows model to support query based on request
 // data, return filtered results back to client
 func (api *API) AddQueryResource(resource interface{}, path string) {
+	if a, ok := api.resources[reflect.TypeOf(resource)]; ok {
+		a.Query = true
+		api.resources[reflect.TypeOf(resource)] = a
+	} else {
+		api.resources[reflect.TypeOf(resource)] = Access{Query: true}
+	}
 	api.Mux().Handle(path, api.queryHandler(resource))
 }
 

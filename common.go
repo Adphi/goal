@@ -63,8 +63,12 @@ func renderJSON(rw http.ResponseWriter, request *http.Request, handler simpleRes
 }
 
 // RegisterModel initializes default routes for a model
-func RegisterModel(resource interface{}) {
+func RegisterModel(resource interface{}, access Access) {
 	db.AutoMigrate(resource)
+	if sharedAPI.resources == nil {
+		sharedAPI.resources = map[reflect.Type]Access{}
+	}
+	sharedAPI.resources[reflect.TypeOf(resource)] = access
 	sharedAPI.AddDefaultCrudPaths(resource)
 	sharedAPI.AddDefaultQueryPath(resource)
 }

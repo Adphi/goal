@@ -31,7 +31,7 @@ func validateCols(usernameCol string, passwordCol string, user interface{}) erro
 func RegisterWithPassword(
 	w http.ResponseWriter, request *http.Request,
 	usernameCol string, passwordCol string) (interface{}, error) {
-	if request.Method != POST {
+	if request.Method != http.MethodPost {
 		return nil, http.ErrNotSupported
 	}
 
@@ -106,7 +106,7 @@ func RegisterWithPassword(
 func LoginWithPassword(
 	w http.ResponseWriter, request *http.Request,
 	usernameCol string, passwordCol string) (interface{}, error) {
-	if request.Method != POST {
+	if request.Method != http.MethodPost {
 		return nil, http.ErrNotSupported
 	}
 
