@@ -1,4 +1,4 @@
-package goal_test
+package goal
 
 import (
 	"bytes"
@@ -7,8 +7,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"github.com/Adphi/goal"
 )
 
 // Satisfy Roler interface
@@ -20,15 +18,15 @@ func (user *testuser) Roles() []string {
 }
 
 func (art *article) Get(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.Read(reflect.TypeOf(art), request)
+	return g.read(reflect.TypeOf(art), request)
 }
 
 func (art *article) Post(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.Create(reflect.TypeOf(art), request)
+	return g.create(reflect.TypeOf(art), request)
 }
 
 func (art *article) Query(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.HandleQuery(reflect.TypeOf(art), request)
+	return g.handleQuery(reflect.TypeOf(art), request)
 }
 
 func TestCanRead(t *testing.T) {
@@ -38,17 +36,17 @@ func TestCanRead(t *testing.T) {
 	// Create article with author
 	author := &testuser{}
 	author.Username = "secret"
-	db.Create(author)
+	g.db.Create(author)
 
 	art := &article{}
 	art.Author = author
-	art.Permission = goal.Permission{
+	art.Permission = Permission{
 		Read:  `["admin", "ceo"]`,
 		Write: `["admin", "ceo"]`,
 	}
 	art.Title = "Top Secret"
 
-	err := db.Create(art).Error
+	err := g.db.Create(art).Error
 	if err != nil {
 		fmt.Println("error Create article ", err)
 	}
@@ -58,7 +56,7 @@ func TestCanRead(t *testing.T) {
 	var json = []byte(`{"username":"Adphi", "password": "something-secret"}`)
 	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(json))
 
-	goal.SharedAPI().Mux().ServeHTTP(res, req)
+	g.mux.ServeHTTP(res, req)
 
 	// Make sure cookies is set properly
 	hdr := res.Header()
@@ -67,7 +65,7 @@ func TestCanRead(t *testing.T) {
 		t.Fatal("No cookies. Header:", hdr)
 	}
 
-	artURL := fmt.Sprint(server.URL, "/article/", art.ID)
+	artURL := fmt.Sprint(testServer.URL, "/article/", art.ID)
 
 	// Make sure user is the same with current user from session
 	nextReq, _ := http.NewRequest("GET", artURL, nil)

@@ -1,4 +1,4 @@
-package goal_test
+package goal
 
 import (
 	"bytes"
@@ -6,13 +6,11 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"github.com/Adphi/goal"
 )
 
 // Setup methods to conform to auth interfaces
 func (user *testuser) Register(w http.ResponseWriter, req *http.Request) (int, interface{}, error) {
-	currentUser, err := goal.RegisterWithPassword(w, req, "username", "password")
+	currentUser, err := g.RegisterWithPassword(w, req, "username", "password")
 
 	if err != nil {
 		return 500, nil, err
@@ -22,7 +20,7 @@ func (user *testuser) Register(w http.ResponseWriter, req *http.Request) (int, i
 }
 
 func (user *testuser) Login(w http.ResponseWriter, req *http.Request) (int, interface{}, error) {
-	currentUser, err := goal.LoginWithPassword(w, req, "username", "password")
+	currentUser, err := g.LoginWithPassword(w, req, "username", "password")
 
 	if err != nil {
 		return 500, nil, err
@@ -32,7 +30,7 @@ func (user *testuser) Login(w http.ResponseWriter, req *http.Request) (int, inte
 }
 
 func (user *testuser) Logout(w http.ResponseWriter, req *http.Request) (int, interface{}, error) {
-	goal.HandleLogout(w, req)
+	g.HandleLogout(w, req)
 	return 200, nil, nil
 }
 
@@ -44,7 +42,7 @@ func TestAuth(t *testing.T) {
 
 	var json = []byte(`{"username":"Adphi", "password": "secret-password"}`)
 	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(json))
-	goal.SharedAPI().Mux().ServeHTTP(recorder, req)
+	g.mux.ServeHTTP(recorder, req)
 
 	// Make sure cookies is set properly
 	hdr := recorder.Header()
@@ -55,7 +53,7 @@ func TestAuth(t *testing.T) {
 
 	// Make sure db has one object
 	var user testuser
-	err := db.Where("username = ?", "Adphi").First(&user).Error
+	err := g.db.Where("username = ?", "Adphi").First(&user).Error
 	if err != nil {
 		t.Error("Fail to save object to database")
 		return
@@ -64,7 +62,7 @@ func TestAuth(t *testing.T) {
 	// Make sure user is the same with current user from session
 	logoutReq, _ := http.NewRequest("POST", "/auth/logout", nil)
 	logoutReq.Header.Add("Cookie", cookies[0])
-	currentUser, err := goal.GetCurrentUser(logoutReq)
+	currentUser, err := g.getCurrentUser(logoutReq)
 	if err != nil {
 		t.Error(err)
 	}
@@ -75,7 +73,7 @@ func TestAuth(t *testing.T) {
 
 	// Logout
 	recorder = httptest.NewRecorder()
-	goal.SharedAPI().Mux().ServeHTTP(recorder, logoutReq)
+	g.mux.ServeHTTP(recorder, logoutReq)
 
 	// Make sure cookies is cleared after logout
 	hdr = recorder.Header()
@@ -89,7 +87,7 @@ func TestAuth(t *testing.T) {
 
 	// Login
 	recorder = httptest.NewRecorder()
-	goal.SharedAPI().Mux().ServeHTTP(recorder, loginReq)
+	g.mux.ServeHTTP(recorder, loginReq)
 
 	// Make sure cookies is set properly
 	hdr = recorder.Header()

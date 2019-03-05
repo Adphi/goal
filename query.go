@@ -12,15 +12,15 @@ type QuerySupporter interface {
 	Query(http.ResponseWriter, *http.Request) (int, interface{}, error)
 }
 
-func (api *API) queryHandler(resource interface{}) http.HandlerFunc {
+func (g *Goal) queryHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		var handler simpleResponse
 
 		if r, ok := resource.(QuerySupporter); ok {
 			handler = r.Query
-		} else if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Query {
+		} else if a, ok := g.resources[reflect.TypeOf(resource)]; ok && a.Query {
 			handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
-				return HandleQuery(reflect.TypeOf(resource), r)
+				return g.handleQuery(reflect.TypeOf(resource), r)
 			}
 		}
 
@@ -30,20 +30,20 @@ func (api *API) queryHandler(resource interface{}) http.HandlerFunc {
 
 // AddQueryResource allows model to support query based on request
 // data, return filtered results back to client
-func (api *API) AddQueryResource(resource interface{}, path string) {
-	if a, ok := api.resources[reflect.TypeOf(resource)]; ok {
+func (g *Goal) AddQueryResource(resource interface{}, path string) {
+	if a, ok := g.resources[reflect.TypeOf(resource)]; ok {
 		a.Query = true
-		api.resources[reflect.TypeOf(resource)] = a
+		g.resources[reflect.TypeOf(resource)] = a
 	} else {
-		api.resources[reflect.TypeOf(resource)] = Access{Query: true}
+		g.resources[reflect.TypeOf(resource)] = ResourceACL{Query: true}
 	}
-	api.Mux().Handle(path, api.queryHandler(resource))
+	g.mux.Handle(path, g.queryHandler(resource))
 }
 
 // AddDefaultQueryPath allows model to support query based on request
 // data, return filtered results back to client. The path is created
 // base on struct name
-func (api *API) AddDefaultQueryPath(resource interface{}) {
-	queryPath := fmt.Sprintf("/query/%s/{query}", TableName(resource))
-	api.AddQueryResource(resource, queryPath)
+func (g *Goal) AddDefaultQueryPath(resource interface{}) {
+	queryPath := fmt.Sprintf("/query/%s/{query}", g.tableName(resource))
+	g.AddQueryResource(resource, queryPath)
 }

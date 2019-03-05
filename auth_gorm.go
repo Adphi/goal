@@ -11,9 +11,9 @@ import (
 )
 
 // validateCols columns are valid
-func validateCols(usernameCol string, passwordCol string, user interface{}) error {
+func (g *Goal) validateCols(usernameCol string, passwordCol string, user interface{}) error {
 	// validateCols column names
-	scope := db.NewScope(user)
+	scope := g.db.NewScope(user)
 	cols := []string{usernameCol, passwordCol}
 	for _, col := range cols {
 		if !scope.HasColumn(col) {
@@ -28,14 +28,14 @@ func validateCols(usernameCol string, passwordCol string, user interface{}) erro
 // RegisterWithPassword checks if username exists and
 // sets password with bcrypt algorithm
 // Client can provides extra data to be saved into database for user
-func RegisterWithPassword(
+func (g *Goal) RegisterWithPassword(
 	w http.ResponseWriter, request *http.Request,
 	usernameCol string, passwordCol string) (interface{}, error) {
 	if request.Method != http.MethodPost {
 		return nil, http.ErrNotSupported
 	}
 
-	user, err := getUserResource()
+	user, err := g.getUserResource()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func RegisterWithPassword(
 		return nil, errors.New("username or password is not found")
 	}
 
-	err = validateCols(usernameCol, passwordCol, user)
+	err = g.validateCols(usernameCol, passwordCol, user)
 
 	if err != nil {
 		fmt.Println(err)
@@ -65,7 +65,7 @@ func RegisterWithPassword(
 	// Search db, if a username is already defined, return error
 	qryStr := fmt.Sprintf("%s = ?", usernameCol)
 	var count int
-	qry := db.Where(qryStr, username).First(user).Count(&count)
+	qry := g.db.Where(qryStr, username).First(user).Count(&count)
 	err = qry.Error
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
@@ -79,7 +79,7 @@ func RegisterWithPassword(
 
 	// Since user was populated with extra data, we need to
 	// setup new scope
-	scope := db.NewScope(user)
+	scope := g.db.NewScope(user)
 
 	// Save a new record to db
 	scope.SetColumn(usernameCol, username)
@@ -96,26 +96,26 @@ func RegisterWithPassword(
 	}
 
 	// Set current session
-	SetUserSession(w, request, user)
+	g.setUserSession(w, request, user)
 
 	return user, nil
 }
 
 // LoginWithPassword checks if username and password correct
 // and set user into session
-func LoginWithPassword(
+func (g *Goal) LoginWithPassword(
 	w http.ResponseWriter, request *http.Request,
 	usernameCol string, passwordCol string) (interface{}, error) {
 	if request.Method != http.MethodPost {
 		return nil, http.ErrNotSupported
 	}
 
-	user, err := getUserResource()
+	user, err := g.getUserResource()
 	if err != nil {
 		return nil, err
 	}
 
-	err = validateCols(usernameCol, passwordCol, user)
+	err = g.validateCols(usernameCol, passwordCol, user)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func LoginWithPassword(
 	// Search db, if a username is not found, return error
 	qry := fmt.Sprintf("%s = ?", usernameCol)
 
-	qryDB := db.Where(qry, username).First(user)
+	qryDB := g.db.Where(qry, username).First(user)
 	err = qryDB.Error
 	if err != nil {
 		return nil, err
@@ -167,12 +167,12 @@ func LoginWithPassword(
 	}
 
 	// Set current session
-	SetUserSession(w, request, user)
+	g.setUserSession(w, request, user)
 
 	return user, nil
 }
 
 // HandleLogout let user logout from the system
-func HandleLogout(w http.ResponseWriter, request *http.Request) {
-	ClearUserSession(w, request)
+func (g *Goal) HandleLogout(w http.ResponseWriter, request *http.Request) {
+	clearUserSession(w, request)
 }

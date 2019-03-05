@@ -1,4 +1,4 @@
-package goal_test
+package goal
 
 import (
 	"bytes"
@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
-
-	"github.com/Adphi/goal"
 )
 
 func (user *testuser) CurrentRevision() int64 {
@@ -41,7 +39,7 @@ func TestCreate(t *testing.T) {
 
 	// Make sure db has one object
 	var user testuser
-	db.Where("name = ?", "Thomas").First(&user)
+	g.db.Where("name = ?", "Thomas").First(&user)
 	if &user == nil {
 		t.Error("Fail to save object to database")
 		return
@@ -52,10 +50,10 @@ func TestCreate(t *testing.T) {
 	}
 
 	// Make sure data exists in Redis
-	if goal.SharedCache != nil {
-		key := goal.CacheKey(user)
+	if g.cacher != nil {
+		key := g.cacheKey(user)
 		var redisUser testuser
-		goal.SharedCache.Get(key, &redisUser)
+		g.cacher.Get(key, &redisUser)
 		if !reflect.DeepEqual(user, redisUser) {
 			t.Error("Incorrect data in redis, ", user, redisUser)
 		}
@@ -70,7 +68,7 @@ func TestGet(t *testing.T) {
 	user.Name = "Thomas"
 	user.Age = 28
 	user.Rev = 1
-	db.Create(user)
+	g.db.Create(user)
 
 	req, _ := http.NewRequest("GET", idURL(user.ID), nil)
 
@@ -107,16 +105,16 @@ func TestGet(t *testing.T) {
 	}
 
 	// Make sure data exists in Redis
-	if goal.SharedCache != nil {
-		key := goal.CacheKey(user)
+	if g.cacher != nil {
+		key := g.cacheKey(user)
 
 		// Test data exists in Redis
-		if exist, _ := goal.SharedCache.Exists(key); !exist {
+		if exist, _ := g.cacher.Exists(key); !exist {
 			t.Error("Data should be saved into Redis")
 		}
 
 		var redisUser testuser
-		goal.SharedCache.Get(key, &redisUser)
+		g.cacher.Get(key, &redisUser)
 		if !reflect.DeepEqual(user, &redisUser) {
 			t.Error("Incorrect data in redis, ", user, &redisUser)
 		}
@@ -131,7 +129,7 @@ func TestPut(t *testing.T) {
 	user.Name = "Thomas"
 	user.Age = 28
 	user.Rev = 1
-	db.Create(user)
+	g.db.Create(user)
 
 	var json = []byte(`{"Name":"Thomas Dao", "ID":1, "Rev":1}`)
 	req, _ := http.NewRequest("PUT", idURL(user.ID), bytes.NewBuffer(json))
@@ -153,7 +151,7 @@ func TestPut(t *testing.T) {
 	}
 
 	var result testuser
-	if db.Where("name = ?", "Thomas Dao").First(&result).RecordNotFound() {
+	if g.db.Where("name = ?", "Thomas Dao").First(&result).RecordNotFound() {
 		t.Error("Update unsuccessful")
 	}
 
@@ -162,10 +160,10 @@ func TestPut(t *testing.T) {
 	}
 
 	// Make sure data exists in Redis
-	if goal.SharedCache != nil {
-		key := goal.CacheKey(user)
+	if g.cacher != nil {
+		key := g.cacheKey(user)
 		var redisUser testuser
-		goal.SharedCache.Get(key, &redisUser)
+		g.cacher.Get(key, &redisUser)
 		if !reflect.DeepEqual(result, redisUser) {
 			t.Error("Incorrect data in redis, ", result, redisUser)
 		}
@@ -180,7 +178,7 @@ func TestPutConflict(t *testing.T) {
 	user.Name = "Thomas"
 	user.Age = 28
 	user.Rev = 2
-	db.Create(user)
+	g.db.Create(user)
 
 	var json = []byte(`{"Name":"Thomas Dao", "ID":1, "Rev":1}`)
 	req, _ := http.NewRequest("PUT", idURL(user.ID), bytes.NewBuffer(json))
@@ -201,7 +199,7 @@ func TestPutConflict(t *testing.T) {
 	}
 
 	var result testuser
-	if db.Where("name = ?", "Thomas").First(&result).RecordNotFound() {
+	if g.db.Where("name = ?", "Thomas").First(&result).RecordNotFound() {
 		t.Error("Update unsuccessful")
 	}
 
@@ -210,10 +208,10 @@ func TestPutConflict(t *testing.T) {
 	}
 
 	// Make sure data exists in Redis
-	if goal.SharedCache != nil {
-		key := goal.CacheKey(user)
+	if g.cacher != nil {
+		key := g.cacheKey(user)
 		var redisUser testuser
-		goal.SharedCache.Get(key, &redisUser)
+		g.cacher.Get(key, &redisUser)
 		if !reflect.DeepEqual(result, redisUser) {
 			t.Error("Incorrect data in redis, ", result, redisUser)
 		}
@@ -240,7 +238,7 @@ func TestDelete(t *testing.T) {
 	user := &testuser{}
 	user.Name = "Thomas"
 	user.Age = 28
-	db.Create(user)
+	g.db.Create(user)
 
 	req, _ := http.NewRequest("DELETE", idURL(user.ID), nil)
 
@@ -258,14 +256,14 @@ func TestDelete(t *testing.T) {
 	}
 
 	var result testuser
-	if !db.Where("name = ?", "Thomas").First(&result).RecordNotFound() {
+	if !g.db.Where("name = ?", "Thomas").First(&result).RecordNotFound() {
 		t.Error("Delete is not successful. Expected result delete from db")
 	}
 
 	// Make sure no more data in redis
-	if goal.SharedCache != nil {
-		key := goal.CacheKey(user)
-		if exist, _ := goal.SharedCache.Exists(key); exist {
+	if g.cacher != nil {
+		key := g.cacheKey(user)
+		if exist, _ := g.cacher.Exists(key); exist {
 			t.Error("Data should be deleted from Redis when object is deleted")
 		}
 	}

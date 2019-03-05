@@ -3,9 +3,11 @@ package goal
 import (
 	"errors"
 	"fmt"
+	"github.com/jinzhu/gorm"
 )
 
 type query struct {
+	db    *gorm.DB
 	w     []*QueryItem
 	l     int64
 	s     int64
@@ -14,8 +16,8 @@ type query struct {
 	Error error
 }
 
-func NewQuery() *query {
-	return &query{}
+func (g *Goal) NewQuery() *query {
+	return &query{db: g.db}
 }
 
 func (q *query) Where(key string) *query {
@@ -115,7 +117,8 @@ func (q *query) Like(val interface{}) *query {
 }
 
 func (q *query) Find(resource interface{}, results interface{}) error {
-	p := QueryParams{
+	p := queryParams{
+		db:      q.db,
 		Where:   q.w,
 		Order:   q.o,
 		Limit:   q.l,

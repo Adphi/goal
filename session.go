@@ -4,54 +4,34 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
-
-	"github.com/gorilla/sessions"
 )
-
-const (
-	// SessionName is default name for user session
-	SessionName = "goal.UserSessionName"
-
-	// SessionKey is default key for user object
-	SessionKey = "goal.UserSessionKey"
-)
-
-// SharedSessionStore used to generate session for multiple requests
-var SharedSessionStore sessions.Store
-
-// InitSessionStore initializes SharedSessionStore
-func InitSessionStore(store sessions.Store) {
-	SharedSessionStore = store
-}
-
-var userType reflect.Type
 
 // SetUserModel lets goal which model act as user
-func SetUserModel(user interface{}) {
-	userType = reflect.TypeOf(user).Elem()
+func (g *Goal) SetUserModel(user interface{}) {
+	g.userType = reflect.TypeOf(user).Elem()
 }
 
 // getUserResource returns a new variable based on reflection
 // e.g user := &User{}
-func getUserResource() (interface{}, error) {
-	if userType == nil {
+func (g *Goal) getUserResource() (interface{}, error) {
+	if g.userType == nil {
 		return nil, errors.New("User model was not registered")
 	}
 
-	return reflect.New(userType).Interface(), nil
+	return reflect.New(g.userType).Interface(), nil
 }
 
 // SetUserSession sets current user to session
-func SetUserSession(w http.ResponseWriter, req *http.Request, user interface{}) error {
-	session, err := SharedSessionStore.Get(req, SessionName)
+func (g *Goal) setUserSession(w http.ResponseWriter, req *http.Request, user interface{}) error {
+	session, err := g.session.Get(req, g.c.sessionName)
 	if err != nil {
 		return err
 	}
 
-	scope := db.NewScope(user)
+	scope := g.db.NewScope(user)
 
 	// Set some session values.
-	session.Values[SessionKey] = scope.PrimaryKeyValue()
+	session.Values[g.c.sessionKey] = scope.PrimaryKeyValue()
 
 	// Save it before we write to the response/return from the handler.
 	err = session.Save(req, w)
@@ -59,30 +39,30 @@ func SetUserSession(w http.ResponseWriter, req *http.Request, user interface{}) 
 }
 
 // GetCurrentUser returns current user based on the request header
-func GetCurrentUser(req *http.Request) (interface{}, error) {
-	session, err := SharedSessionStore.Get(req, SessionName)
+func (g *Goal) getCurrentUser(req *http.Request) (interface{}, error) {
+	session, err := g.session.Get(req, g.c.sessionName)
 	if err != nil {
 		return nil, err
 	}
 
-	userID, ok := session.Values[SessionKey]
+	userID, ok := session.Values[g.c.sessionKey]
 	if !ok {
 		return nil, errors.New("empty session")
 	}
 
 	var user interface{}
-	user, err = getUserResource()
+	user, err = g.getUserResource()
 	if err != nil {
 		return nil, err
 	}
 
-	// Load user from Cache or from database
+	// Load user from cacher or from database
 	exists := false
-	if SharedCache != nil {
-		cacheKey := DefaultCacheKey(TableName(user), userID)
-		exists, err = SharedCache.Exists(cacheKey)
+	if g.cacher != nil {
+		cacheKey := defaultCacheKey(g.tableName(user), userID)
+		exists, err = g.cacher.Exists(cacheKey)
 		if err == nil && exists {
-			err = SharedCache.Get(cacheKey, user)
+			err = g.cacher.Get(cacheKey, user)
 
 			if err == nil {
 				return user, nil
@@ -92,15 +72,15 @@ func GetCurrentUser(req *http.Request) (interface{}, error) {
 
 	// If data not exists in Redis, load from database
 	if !exists {
-		err = db.First(user, userID).Error
+		err = g.db.First(user, userID).Error
 		return user, err
 	}
 
 	return nil, errors.New("invalid session data")
 }
 
-// ClearUserSession removes the current user from session
-func ClearUserSession(w http.ResponseWriter, req *http.Request) error {
+// clearUserSession removes the current user from session
+func clearUserSession(w http.ResponseWriter, req *http.Request) error {
 	http.SetCookie(w, nil)
 	return nil
 }

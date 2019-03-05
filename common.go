@@ -2,6 +2,7 @@ package goal
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"reflect"
 )
@@ -9,10 +10,10 @@ import (
 // To shorten the code, define a type
 type simpleResponse func(http.ResponseWriter, *http.Request) (int, interface{}, error)
 
-// TableName returns table name for the resource
-func TableName(resource interface{}) string {
+// tableName returns table name for the resource
+func (g *Goal) tableName(resource interface{}) string {
 	// Extract name of resource type
-	name := db.NewScope(resource).TableName()
+	name := g.db.NewScope(resource).TableName()
 	return name
 }
 
@@ -63,14 +64,15 @@ func renderJSON(rw http.ResponseWriter, request *http.Request, handler simpleRes
 }
 
 // RegisterModel initializes default routes for a model
-func RegisterModel(resource interface{}, access Access) {
-	db.AutoMigrate(resource)
-	if sharedAPI.resources == nil {
-		sharedAPI.resources = map[reflect.Type]Access{}
+func (g *Goal) RegisterModel(resource interface{}, access ResourceACL) {
+	logrus.Infof("Registering model : %s", g.tableName(resource))
+	g.db.AutoMigrate(resource)
+	if g.resources == nil {
+		g.resources = map[reflect.Type]ResourceACL{}
 	}
-	sharedAPI.resources[reflect.TypeOf(resource)] = access
-	sharedAPI.AddDefaultCrudPaths(resource)
-	sharedAPI.AddDefaultQueryPath(resource)
+	g.resources[reflect.TypeOf(resource)] = access
+	g.AddDefaultCrudPaths(resource)
+	g.AddDefaultQueryPath(resource)
 }
 
 // dynamicSlice creates a slice with element with resource type

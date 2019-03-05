@@ -1,12 +1,14 @@
 [![Build Status](https://travis-ci.org/Adphi/goal.svg?branch=master)](https://travis-ci.org/Adphi/goal)
 
+# ⚠️ Not Production ready : Big refactoring and features improvement in progress (README outdated) ⚠️
+
 I like [Parse](https://parse.com) for its ease of use and I think it's really nice example about well-designed API. However it is probably best for mobile backend where you don't need too much control at server side. Its query can be slow since we don't have control over index, and many services are not available like cache or websocket.
 
 My objective for Goal is to provide basic Parse features: solid implementation for CRUD, query, authentication and permission model, so it can be quickly setup and run as a backend for your mobile app. It is also flexible and easily extensible.
 
 Goal relies on 3 popular Go libraries: [Gorm](https://github.com/jinzhu/gorm), Gorilla [Mux](www.gorillatoolkit.org/pkg/mux) and [Sessions](www.gorillatoolkit.org/pkg/sessions). You can use familiar SQL database to store your data.
 
-# Setup Model and database connection
+# Setup Model and initialize Goal
 
 Since Goal relies on Gorm, you can just define your models as described in [Gorm](https://github.com/jinzhu/gorm) documentation. For example:
 
@@ -27,59 +29,49 @@ type article struct {
 	Write  string
 }
 
-func setupDB()  {
-  var err error
-  db, err = gorm.Open("sqlite3", ":memory:")
-  if err != nil {
-    panic(err)
-  }
-
-  db.SingularTable(true)
-
-  // Setup database
-  goal.InitGormDb(&db)
+func main()  {
+    g, err = NewGoal( 
+        //Initialize db
+        WithDBAddress("sqlite3", ":memory:"),
+        // Set Singular tables
+        WithDBOptions(func(db *gorm.DB) error {
+            db.SingularTable(true)
+            return nil
+        }),
+        // Initialize session
+        WithSessionStore([]byte("something-very-secret")),
+        WithAddress(":8080"),
+    )
+    if err != nil {
+        logrus.Fatal(err)
+    }
 }
 ```
 
 
 # Setup basic CRUD and Query
 
-Goal simplifies many ideas from [Sleepy Framework](https://github.com/dougblack/sleepy), where each model defines methods to handle basic CRUD and Query for its table. Goal provides ready-to-use implementation for each of these method. If you don't want to support any method in your API, just do not implement it, Goal will return 405 HTTP error code to the client.
-
 ```go
-// Define HTTP methods to support
-func (user *testuser) Get(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.Read(reflect.TypeOf(user), request)
-}
 
-func (user *testuser) Post(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.Create(reflect.TypeOf(user), request)
-}
-
-func (user *testuser) Put(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.Update(reflect.TypeOf(user), request)
-}
-
-func (user *testuser) Delete(w http.ResponseWriter, request *http.Request) (int, interface{}, error) {
-	return goal.Delete(reflect.TypeOf(user), request)
-}
 ```
 
-Goal uses Gorilla Mux to route the request correctly to the handler. You can use all features of Gorilla Mux with `api.Mux()`
+Goal uses Gorilla Mux to route the request correctly to the handler. You can use all features of Gorilla Mux with `g.Mux()`
 
 ```go
 func main() {
-  // Initialize API
-  api := goal.NewAPI()
+    (...)
+    
+    // Add paths to correct model
+    g.RegisterModel(&testUser{}, ResourceACL{
+        Create: true,
+        Read:   true,
+        Update: true,
+        Delete: true,
+        Query:  true,
+    })
 
-  // Add paths to correct model
-  user := &testuser{}
-  db.AutoMigrate(user)
-  api.AddCrudResource(user, "/testuser", "/testuser/{id:[a-zA-Z0-9]+}")
-  api.AddQueryResource(user, "/query/testuser/{query}")
-
-  // Run the API
-  http.ListenAndServe(":8080", api.Mux())
+    // Run the server
+    g.Run()
 }
 ```
 
@@ -87,7 +79,7 @@ Goal predefines a set of default paths based on the model's table name (as defin
 
 ```go
 // Extract name of resource type
-name := TableName(resource)
+name := g.tableName(resource)
 
 // Default path to interact with resource
 createPath := fmt.Sprintf("/%s", name)

@@ -6,11 +6,11 @@ import (
 )
 
 func TestQuery(t *testing.T) {
-	q := NewQuery()
+	q := &query{}
 	q.And("key")
 	assert.Error(t, q.Error)
-	q = NewQuery()
 
+	q = &query{}
 	q.Where("myKey")
 	assert.NoError(t, q.Error)
 	assert.Equal(t, 1, len(q.w))
@@ -60,7 +60,8 @@ func TestQuery(t *testing.T) {
 }
 
 func TestFullQuery(t *testing.T) {
-	q := NewQuery().
+	q := &query{}
+	q = q.
 		Where("id").
 		Equals(1).
 		Or("user").
@@ -96,6 +97,7 @@ func TestFullQuery(t *testing.T) {
 }
 
 func TestQueryError(t *testing.T) {
-	q := NewQuery().Where("key").Or("other_key").Equals(false)
+	q := &query{}
+	q = q.Where("key").Or("other_key").Equals(false)
 	assert.Error(t, q.Error)
 }

@@ -1,4 +1,4 @@
-package goal_test
+package goal
 
 import (
 	"encoding/json"
@@ -7,12 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
-
-	"github.com/Adphi/goal"
 )
 
 func queryPath(query []byte) string {
-	return fmt.Sprint(server.URL, "/query/testuser/", url.QueryEscape(string(query)))
+	return fmt.Sprint(testServer.URL, "/query/testuser/", url.QueryEscape(string(query)))
 }
 
 func createUsers() {
@@ -23,7 +21,7 @@ func createUsers() {
 		user := &testuser{}
 		user.Name = name
 		user.Age = ages[index]
-		db.Create(user)
+		g.db.Create(user)
 	}
 }
 
@@ -35,43 +33,43 @@ func TestSuccessQueryParamsFind(t *testing.T) {
 
 	// Test success case
 
-	item := &goal.QueryItem{}
+	item := &QueryItem{}
 	item.Key = "name"
 	item.Op = "="
 	item.Val = "Thomas"
 
-	params := &goal.QueryParams{}
-	params.Where = []*goal.QueryItem{item}
+	params := g.NewQueryParams()
+	params.Where = []*QueryItem{item}
 
 	var results []testuser
 	var user testuser
 	params.Find(&user, &results)
 
 	if results == nil || len(results) != 1 {
-		t.Error("Error: query should return 1 result")
+		t.Error("Error: query should return 1 result. Got : ", results)
 	}
 
-	orItem := &goal.QueryItem{}
+	orItem := &QueryItem{}
 	orItem.Key = "name"
 	orItem.Op = "="
 	orItem.Val = "Alan"
-	item.Or = []*goal.QueryItem{orItem}
-	params.Where = []*goal.QueryItem{item}
+	item.Or = []*QueryItem{orItem}
+	params.Where = []*QueryItem{item}
 	params.Find(&user, &results)
 
 	if results == nil || len(results) != 2 {
-		t.Error("Error: query should return 2 result")
+		t.Error("Error: query should return 2 result. Got : ", results)
 	}
 
-	andItem := &goal.QueryItem{}
+	andItem := &QueryItem{}
 	andItem.Key = "age"
 	andItem.Op = ">"
 	andItem.Val = "29"
-	params.Where = []*goal.QueryItem{item, andItem}
+	params.Where = []*QueryItem{item, andItem}
 	params.Find(&user, &results)
 
 	if results == nil || len(results) != 1 {
-		t.Error("Error: query should return 1 result")
+		t.Error("Error: query should return 1 result. Got : ", results)
 	}
 
 }
@@ -85,23 +83,23 @@ func TestSuccessQueryBuilderFind(t *testing.T) {
 	var results []testuser
 	var user testuser
 
-	q := goal.NewQuery().Where("name").Equals("Thomas")
+	q := g.NewQuery().Where("name").Equals("Thomas")
 	q.Find(&user, &results)
 
 	if results == nil || len(results) != 1 {
-		t.Error("Error: query should return 1 result")
+		t.Error("Error: query should return 1 result. Got : ", results)
 	}
 
 	q = q.Or("name").Equals("Alan")
 	q.Find(&user, &results)
 
 	if results == nil || len(results) != 2 {
-		t.Error("Error: query should return 2 result")
+		t.Error("Error: query should return 2 result. Got : ", results)
 	}
 
 	q.And("age").Sup(29).Find(&user, &results)
 	if results == nil || len(results) != 1 {
-		t.Error("Error: query should return 1 result")
+		t.Error("Error: query should return 1 result. Got : ", results)
 	}
 }
 
@@ -113,13 +111,13 @@ func TestInvalidQueryParamsFind(t *testing.T) {
 
 	// Test success case
 
-	item := &goal.QueryItem{}
+	item := &QueryItem{}
 	item.Key = "name"
 	item.Op = "hello"
 	item.Val = "Thomas"
 
-	params := &goal.QueryParams{}
-	params.Where = []*goal.QueryItem{item}
+	params := g.NewQueryParams()
+	params.Where = []*QueryItem{item}
 
 	var results []testuser
 	var user testuser
@@ -128,11 +126,11 @@ func TestInvalidQueryParamsFind(t *testing.T) {
 		t.Error("Error: query operator should be invalid")
 	}
 
-	item = &goal.QueryItem{}
+	item = &QueryItem{}
 	item.Key = "hello"
 	item.Op = "="
 	item.Val = "Thomas"
-	params.Where = []*goal.QueryItem{item}
+	params.Where = []*QueryItem{item}
 
 	err = params.Find(&user, &results)
 	if err == nil {
@@ -145,13 +143,13 @@ func TestQueryViaAPI(t *testing.T) {
 	defer tearDown()
 
 	createUsers()
-	item := &goal.QueryItem{}
+	item := &QueryItem{}
 	item.Key = "name"
 	item.Op = "="
 	item.Val = "Thomas"
 
-	params := &goal.QueryParams{}
-	params.Where = []*goal.QueryItem{item}
+	params := g.NewQueryParams()
+	params.Where = []*QueryItem{item}
 
 	query, _ := json.Marshal(params)
 
@@ -184,6 +182,6 @@ func TestQueryViaAPI(t *testing.T) {
 	json.Unmarshal(content, &results)
 
 	if results == nil || len(results) != 1 {
-		t.Error("Error: query should return 1 result")
+		t.Error("Error: query should return 1 result. Got : ", results)
 	}
 }

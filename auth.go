@@ -17,7 +17,7 @@ type Logouter interface {
 	Logout(http.ResponseWriter, *http.Request) (int, interface{}, error)
 }
 
-func (api *API) registerHandler(resource interface{}) http.HandlerFunc {
+func (g *Goal) registerHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		var handler simpleResponse
 
@@ -29,7 +29,7 @@ func (api *API) registerHandler(resource interface{}) http.HandlerFunc {
 	}
 }
 
-func (api *API) loginHandler(resource interface{}) http.HandlerFunc {
+func (g *Goal) loginHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		var handler simpleResponse
 
@@ -41,7 +41,7 @@ func (api *API) loginHandler(resource interface{}) http.HandlerFunc {
 	}
 }
 
-func (api *API) logoutHandler(resource interface{}) http.HandlerFunc {
+func (g *Goal) logoutHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		var handler simpleResponse
 
@@ -54,24 +54,24 @@ func (api *API) logoutHandler(resource interface{}) http.HandlerFunc {
 }
 
 // AddRegisterPath let user to register into a system
-func (api *API) AddRegisterPath(resource interface{}, path string) {
-	api.Mux().Handle(path, api.registerHandler(resource))
+func (g *Goal) AddRegisterPath(resource interface{}, path string) {
+	g.mux.Handle(path, g.registerHandler(resource))
 }
 
 // AddLoginPath let user login to system
-func (api *API) AddLoginPath(resource interface{}, path string) {
-	api.Mux().Handle(path, api.loginHandler(resource))
+func (g *Goal) AddLoginPath(resource interface{}, path string) {
+	g.mux.Handle(path, g.loginHandler(resource))
 }
 
 // AddLogoutPath let user logout from the system
-func (api *API) AddLogoutPath(resource interface{}, path string) {
-	api.Mux().Handle(path, api.logoutHandler(resource))
+func (g *Goal) AddLogoutPath(resource interface{}, path string) {
+	g.mux.Handle(path, g.logoutHandler(resource))
 }
 
 // AddDefaultAuthPaths route request to the model which implement
 // authentications
-func (api *API) AddDefaultAuthPaths(resource interface{}) {
-	api.Mux().Handle("/auth/register", api.registerHandler(resource))
-	api.Mux().Handle("/auth/login", api.loginHandler(resource))
-	api.Mux().Handle("/auth/logout", api.logoutHandler(resource))
+func (g *Goal) AddDefaultAuthPaths(resource interface{}) {
+	g.mux.Handle("/auth/register", g.registerHandler(resource))
+	g.mux.Handle("/auth/login", g.loginHandler(resource))
+	g.mux.Handle("/auth/logout", g.logoutHandler(resource))
 }

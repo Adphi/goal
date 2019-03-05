@@ -65,9 +65,10 @@ type QueryItem struct {
 	Or  []*QueryItem `json:"or"`
 }
 
-// QueryParams defines structure of a query. Where clause
+// queryParams defines structure of a query. Where clause
 // may include multiple QueryItem and connect by "AND" operator
-type QueryParams struct {
+type queryParams struct {
+	db      *gorm.DB        `json:"-"`
 	Where   []*QueryItem    `json:"where"`
 	Limit   int64           `json:"limit"`
 	Skip    int64           `json:"skip"`
@@ -75,12 +76,16 @@ type QueryParams struct {
 	Include []string        `json:"include"`
 }
 
+func (g *Goal) NewQueryParams() *queryParams {
+	return &queryParams{db: g.db}
+}
+
 // Find constructs the query, return error immediately if query is invalid,
 // and query database if everything is valid
-func (params *QueryParams) Find(resource interface{}, results interface{}) error {
-	scope := db.NewScope(resource)
+func (params *queryParams) Find(resource interface{}, results interface{}) error {
+	scope := params.db.NewScope(resource)
 
-	qryDB := db.New()
+	qryDB := params.db.New()
 
 	// Parse where clause
 	if params.Where != nil {
@@ -142,11 +147,7 @@ func (params *QueryParams) Find(resource interface{}, results interface{}) error
 }
 
 // HandleQuery retrieves results filtered by request parameters
-func HandleQuery(rType reflect.Type, request *http.Request) (int, interface{}, error) {
-	if db == nil {
-		panic("Database is not initialized yet")
-	}
-
+func (g *Goal) handleQuery(rType reflect.Type, request *http.Request) (int, interface{}, error) {
 	vars := mux.Vars(request)
 
 	// Retrieve query parameter
@@ -156,7 +157,7 @@ func HandleQuery(rType reflect.Type, request *http.Request) (int, interface{}, e
 		return 500, nil, err
 	}
 
-	var params QueryParams
+	params := g.NewQueryParams()
 	err = json.Unmarshal([]byte(query), &params)
 	if err != nil {
 		fmt.Println(err)
@@ -180,7 +181,7 @@ func HandleQuery(rType reflect.Type, request *http.Request) (int, interface{}, e
 
 		for i := 0; i < s.Len(); i++ {
 			item := s.Index(i).Interface()
-			err = CanPerform(item, request, true)
+			err = g.CanPerform(item, request, true)
 
 			// Only add to the filtered slice if no permission error
 			if err == nil {

@@ -1,4 +1,4 @@
-// Cache object to redis automatically by registering
+// cacher object to redis automatically by registering
 // callback to gorm
 
 package goal
@@ -11,11 +11,38 @@ import (
 )
 
 // RedisCache implements Cacher interface
-type RedisCache struct{}
+type RedisCache struct {
+	pool *redis.Pool
+}
+
+func NewRedisCache(address string, maxConnections int) (*RedisCache, error) {
+	pool := redis.NewPool(func() (redis.Conn, error) {
+		c, err := redis.Dial("tcp", address)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return c, err
+	}, maxConnections)
+
+	redisCache := &RedisCache{pool}
+	if err := redisCache.initRedisPool(); err != nil {
+
+		return nil, err
+	}
+	return redisCache, nil
+}
+
+func (r *RedisCache) Close() error {
+	r.clearAll()
+	r.pool.Close()
+	return nil
+}
 
 // Get returns data for a key
-func (cache *RedisCache) Get(key string, val interface{}) error {
-	conn, err := pool.Dial()
+func (r *RedisCache) Get(key string, val interface{}) error {
+	conn, err := r.pool.Dial()
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -40,8 +67,8 @@ func (cache *RedisCache) Get(key string, val interface{}) error {
 }
 
 // Set a val for a key into Redis
-func (cache *RedisCache) Set(key string, val interface{}) error {
-	conn, err := pool.Dial()
+func (r *RedisCache) Set(key string, val interface{}) error {
+	conn, err := r.pool.Dial()
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -60,8 +87,8 @@ func (cache *RedisCache) Set(key string, val interface{}) error {
 }
 
 // Delete a key from Redis
-func (cache *RedisCache) Delete(key string) error {
-	conn, err := pool.Dial()
+func (r *RedisCache) Delete(key string) error {
+	conn, err := r.pool.Dial()
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -74,8 +101,8 @@ func (cache *RedisCache) Delete(key string) error {
 }
 
 // Exists checks if a key exists inside Redis
-func (cache *RedisCache) Exists(key string) (bool, error) {
-	conn, err := pool.Dial()
+func (r *RedisCache) Exists(key string) (bool, error) {
+	conn, err := r.pool.Dial()
 	if err != nil {
 		fmt.Println(err)
 		return false, err
@@ -89,33 +116,20 @@ func (cache *RedisCache) Exists(key string) (bool, error) {
 	return reply, err
 }
 
-var pool *redis.Pool
-
-// InitRedisPool initializes Redis and connection pool
-func (cache *RedisCache) InitRedisPool(p *redis.Pool) error {
-	pool = p
-
-	conn, err := pool.Dial()
+// initRedisPool initializes Redis and connection pool
+func (r *RedisCache) initRedisPool() error {
+	conn, err := r.pool.Dial()
 	if err != nil {
-		pool = nil
+		r.pool = nil
 		return err
 	}
-
 	defer conn.Close()
 	return nil
 }
 
-// Pool returns global connection pool
-func Pool() *redis.Pool {
-	return pool
-}
-
 // RedisClearAll clear all data from connection's CURRENT database
-func RedisClearAll() error {
-	if pool == nil {
-		return nil
-	}
-	conn, err := pool.Dial()
+func (r *RedisCache) clearAll() error {
+	conn, err := r.pool.Dial()
 	if err != nil {
 		fmt.Println(err)
 		return err

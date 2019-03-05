@@ -1,17 +1,12 @@
-package goal_test
+package goal
 
 import (
 	"flag"
 	"fmt"
-	"net/http/httptest"
-
-	"github.com/Adphi/goal"
-	"github.com/garyburd/redigo/redis"
-	"github.com/gorilla/sessions"
 	"github.com/jinzhu/gorm"
+	"github.com/sirupsen/logrus"
+	"net/http/httptest"
 )
-
-var server *httptest.Server
 
 type testuser struct {
 	ID       uint `gorm:"primary_key"`
@@ -26,55 +21,47 @@ type article struct {
 	ID     uint `gorm:"primary_key"`
 	Author *testuser
 	Title  string
-	goal.Permission
+	Permission
 }
 
-var db *gorm.DB
-
 var (
+	g              *Goal
+	testServer     *httptest.Server
 	redisAddress   = flag.String("redis-address", ":6379", "Address to the Redis server")
 	maxConnections = flag.Int("max-connections", 10, "Max connections to Redis")
 )
 
 func setup() {
-	var err error
-	db, err = gorm.Open("sqlite3", ":memory:")
-	if err != nil {
-		panic(err)
-	}
-
-	db.SingularTable(true)
-
-	// Setup database
-	goal.InitGormDb(db)
-
+	// We do not setup db in order to sqlite3 in memory (default)
+	var options []Option
 	// Setup redis
-	pool := redis.NewPool(func() (redis.Conn, error) {
-		c, err := redis.Dial("tcp", *redisAddress)
-
-		if err != nil {
-			return nil, err
-		}
-
-		return c, err
-	}, *maxConnections)
-
-	redisCache := &goal.RedisCache{}
-	err = redisCache.InitRedisPool(pool)
+	redisCache, err := NewRedisCache(*redisAddress, *maxConnections)
 	if err == nil {
-		goal.RegisterCacher(redisCache)
+		options = append(options, WithCache(redisCache))
 	}
+	options = append(options,
+		//Initialize db
+		WithDBAddress("sqlite3", ":memory:"),
+		// Set Singular tables
+		WithDBOptions(func(db *gorm.DB) error {
+			db.SingularTable(true)
+			return nil
+		}),
+		// Initialize session
+		WithSessionStore([]byte("something-very-secret")),
+	)
 
-	// Initialize API
-	api := goal.NewAPI()
+	g, err = NewGoal(options...)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	// Initialize resource
-
 	models := []interface{}{&testuser{}, &article{}}
 
 	// Add default path
 	for _, model := range models {
-		goal.RegisterModel(model, goal.Access{
+		g.RegisterModel(model, ResourceACL{
 			Create: true,
 			Read:   true,
 			Update: true,
@@ -84,35 +71,27 @@ func setup() {
 	}
 
 	user := &testuser{}
-	goal.SetUserModel(user)
-	api.AddDefaultAuthPaths(user)
+	g.SetUserModel(user)
+	g.AddDefaultAuthPaths(user)
 
-	store := sessions.NewCookieStore([]byte("something-very-secret"))
-	goal.InitSessionStore(store)
-
-	// Setup testing server
-	server = httptest.NewServer(api.Mux())
+	testServer = httptest.NewServer(g.mux)
 }
 
 func tearDown() {
-	if server != nil {
-		server.Close()
+	if g != nil {
+		if err := g.Close(); err != nil {
+			logrus.Error(err)
+		}
 	}
-
-	if goal.DB() != nil {
-		db.Close()
-	}
-
-	if goal.Pool() != nil {
-		goal.RedisClearAll()
-		goal.Pool().Close()
+	if testServer != nil {
+		testServer.Close()
 	}
 }
 
 func userURL() string {
-	return fmt.Sprint(server.URL, "/testuser")
+	return fmt.Sprint(testServer.URL, "/testuser")
 }
 
 func idURL(id interface{}) string {
-	return fmt.Sprint(server.URL, "/testuser/", id)
+	return fmt.Sprint(testServer.URL, "/testuser/", id)
 }

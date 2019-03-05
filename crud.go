@@ -2,6 +2,7 @@ package goal
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"reflect"
 )
@@ -43,7 +44,7 @@ type PatchSupporter interface {
 }
 
 // Route request to correct handler and write result back to client
-func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
+func (g *Goal) crudHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		var handler simpleResponse
 
@@ -53,9 +54,9 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 				handler = resource.Get
 				break
 			}
-			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Read {
+			if a, ok := g.resources[reflect.TypeOf(resource)]; ok && a.Read {
 				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
-					return Read(reflect.TypeOf(resource), r)
+					return g.read(reflect.TypeOf(resource), r)
 				}
 			}
 		case http.MethodPost:
@@ -63,9 +64,9 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 				handler = resource.Post
 				break
 			}
-			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Create {
+			if a, ok := g.resources[reflect.TypeOf(resource)]; ok && a.Create {
 				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
-					return Create(reflect.TypeOf(resource), r)
+					return g.create(reflect.TypeOf(resource), r)
 				}
 			}
 		case http.MethodPut:
@@ -73,9 +74,9 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 				handler = resource.Put
 				break
 			}
-			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Update {
+			if a, ok := g.resources[reflect.TypeOf(resource)]; ok && a.Update {
 				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
-					return Update(reflect.TypeOf(resource), r)
+					return g.update(reflect.TypeOf(resource), r)
 				}
 			}
 		case http.MethodDelete:
@@ -83,9 +84,9 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 				handler = resource.Delete
 				break
 			}
-			if a, ok := api.resources[reflect.TypeOf(resource)]; ok && a.Delete {
+			if a, ok := g.resources[reflect.TypeOf(resource)]; ok && a.Delete {
 				handler = func(writer http.ResponseWriter, r *http.Request) (int, interface{}, error) {
-					return Delete(reflect.TypeOf(resource), r)
+					return g.delete(reflect.TypeOf(resource), r)
 				}
 			}
 		case http.MethodHead:
@@ -105,13 +106,13 @@ func (api *API) crudHandler(resource interface{}) http.HandlerFunc {
 // AddCrudResource adds a new resource to an API. The API will route
 // requests that match one of the given paths to the matching HTTP
 // method on the resource.
-func (api *API) AddCrudResource(resource interface{}, paths ...string) {
+func (g *Goal) AddCrudResource(resource interface{}, paths ...string) {
 	for _, path := range paths {
-		api.Mux().HandleFunc(path, api.crudHandler(resource))
+		g.mux.HandleFunc(path, g.crudHandler(resource))
 	}
 }
 
-type Access struct {
+type ResourceACL struct {
 	Create bool
 	Read   bool
 	Update bool
@@ -119,25 +120,37 @@ type Access struct {
 	Query  bool
 }
 
-func (api *API) AddResource(resource interface{}, access Access, paths ...string) {
-	if api.resources == nil {
-		api.resources = map[reflect.Type]Access{}
+func AllACL() ResourceACL {
+	return ResourceACL{
+		Read:   true,
+		Create: true,
+		Update: true,
+		Delete: true,
+		Query:  true,
 	}
-	api.resources[reflect.TypeOf(resource)] = access
+}
+
+func (g *Goal) AddResource(resource interface{}, access ResourceACL, paths ...string) {
+	logrus.Infof("Adding resource : %s", g.tableName(resource))
+	if g.resources == nil {
+		g.resources = map[reflect.Type]ResourceACL{}
+	}
+	g.resources[reflect.TypeOf(resource)] = access
 	for _, path := range paths {
-		api.Mux().HandleFunc(path, api.crudHandler(resource))
+		g.mux.HandleFunc(path, g.crudHandler(resource))
 	}
 }
 
 // AddDefaultCrudPaths adds default path for a resource.
 // The default path is based on the struct name
-func (api *API) AddDefaultCrudPaths(resource interface{}) {
+func (g *Goal) AddDefaultCrudPaths(resource interface{}) {
+	logrus.Debugf("Adding default paths for model : %s", g.tableName(resource))
 	// Extract name of resource type
-	name := TableName(resource)
+	name := g.tableName(resource)
 
 	// Default path to interact with resource
 	createPath := fmt.Sprintf("/%s", name)
 	detailPath := fmt.Sprintf("/%s/{id:[a-zA-Z0-9]+}", name)
 
-	api.AddCrudResource(resource, createPath, detailPath)
+	g.AddCrudResource(resource, createPath, detailPath)
 }

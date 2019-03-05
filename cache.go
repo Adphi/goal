@@ -2,6 +2,7 @@ package goal
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/jinzhu/gorm"
 )
@@ -12,22 +13,19 @@ type Cacher interface {
 	Set(string, interface{}) error
 	Delete(string) error
 	Exists(string) (bool, error)
+	Close() error
 }
 
-// SharedCache is global variable to cache data
-var SharedCache Cacher
-
-// RegisterCacher initializes SharedCache
-func RegisterCacher(cache Cacher) {
-	SharedCache = cache
-
-	if SharedCache != nil {
+func (g *Goal) registerCacher(cache Cacher) {
+	logrus.Info("Registering cache")
+	if g.cacher != nil {
 		// Register Gorm callbacks
-		if db != nil {
-			db.Callback().Create().After("gorm:after_create").Register("goal:cache_after_create", Cache)
-			db.Callback().Update().After("gorm:after_update").Register("goal:cache_after_update", Cache)
-			db.Callback().Query().After("gorm:after_query").Register("goal:cache_after_query", Cache)
-			db.Callback().Delete().Before("gorm:before_delete").Register("goal:uncache_after_delete", Uncache)
+		if g.db != nil {
+			logrus.Info("Registering DB cache callbacks")
+			g.db.Callback().Create().After("gorm:after_create").Register("goal:cache_after_create", g.cache)
+			g.db.Callback().Update().After("gorm:after_update").Register("goal:cache_after_update", g.cache)
+			g.db.Callback().Query().After("gorm:after_query").Register("goal:cache_after_query", g.cache)
+			g.db.Callback().Delete().Before("gorm:before_delete").Register("goal:uncache_after_delete", g.uncache)
 		}
 	}
 }
@@ -35,34 +33,36 @@ func RegisterCacher(cache Cacher) {
 func cacheKeyFromScope(scope *gorm.Scope) string {
 	name := scope.TableName()
 	id := scope.PrimaryKeyValue()
-	key := DefaultCacheKey(name, id)
+	key := defaultCacheKey(name, id)
 	return key
 }
 
-// CacheKey defines by the struct or fallback
+// cacheKey defines by the struct or fallback
 // to name:id format
-func CacheKey(resource interface{}) string {
-	scope := db.NewScope(resource)
+func (g *Goal) cacheKey(resource interface{}) string {
+	scope := g.db.NewScope(resource)
 	return cacheKeyFromScope(scope)
 }
 
-// DefaultCacheKey returns default format for redis key
-func DefaultCacheKey(name string, id interface{}) string {
+// defaultCacheKey returns default format for redis key
+func defaultCacheKey(name string, id interface{}) string {
 	return fmt.Sprintf("%v:%v", name, id)
 }
 
-// Uncache data from cacher
-func Uncache(scope *gorm.Scope) {
+// uncache data from cache
+func (g *Goal) uncache(scope *gorm.Scope) {
+	logrus.Debug("Uncaching query")
 	// Reload object before delete
 	scope.DB().New().First(scope.Value)
 
-	// Delete from redis
+	// Delete from cache
 	key := cacheKeyFromScope(scope)
-	SharedCache.Delete(key)
+	g.cacher.Delete(key)
 }
 
-// Cache data to cacher
-func Cache(scope *gorm.Scope) {
+// cacher data to cache
+func (g *Goal) cache(scope *gorm.Scope) {
+	logrus.Debug("Caching query")
 	key := cacheKeyFromScope(scope)
-	SharedCache.Set(key, scope.Value)
+	g.cacher.Set(key, scope.Value)
 }
